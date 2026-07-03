@@ -18,6 +18,15 @@ Output: appends a structured record to fare_log.json (read directly by the
 dashboard artifact via its raw GitHub URL) and emails you only when
 something is actually notable (new low, Saver flips available, live sale).
 
+What you can tune without touching this file:
+  - windows.json    persistent list of legs to track (edit to add/remove dates
+                    or extra windows). Falls back to DEFAULT_LEGS below if absent.
+  - Manual run      the "Run workflow" button accepts an ad-hoc leg for a single
+                    run (EXTRA_ROUTE / EXTRA_WINDOW / EXTRA_NOTE), and can log a
+                    trip you booked (LOG_TRIP) into trips.json.
+  - trips.json      your personal trip/booking history, for reference. Distinct
+                    from fare_log.json, which is the price-check history.
+
 Setup: see README.md. Needs ANTHROPIC_API_KEY, GMAIL_ADDRESS,
 GMAIL_APP_PASSWORD as GitHub repo secrets.
 """
@@ -36,10 +45,15 @@ GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 ALERT_TO = os.environ.get("ALERT_TO", GMAIL_ADDRESS)
 
 LOG_FILE = Path(__file__).parent / "fare_log.json"
+WINDOWS_FILE = Path(__file__).parent / "windows.json"
+TRIPS_FILE = Path(__file__).parent / "trips.json"
 MODEL = "claude-sonnet-4-6"  # check https://docs.claude.com for the current model string if this errors
 
-# ---- Travel windows, from the BITS Pilani Dubai 2026-27 academic calendar ----
-LEGS = [
+# ---- Default travel windows, from the BITS Pilani Dubai 2026-27 academic calendar ----
+# These are the FALLBACK if windows.json is missing or unreadable. To track more
+# dates or an extra window persistently, edit windows.json (same shape) -- no code
+# change needed. For a one-off check, use the manual-run inputs (see load_legs()).
+DEFAULT_LEGS = [
     {"route": "DEL-DXB", "window": "18-25 Aug 2026", "note": "Outbound: First Semester begins 21 Aug, classwork 25 Aug"},
     {"route": "DXB-DEL", "window": "20-26 Dec 2026", "note": "Winter return: Compre ends 24 Dec"},
     {"route": "DEL-DXB", "window": "15-22 Jan 2027", "note": "Back to Dubai: Second Semester begins 22 Jan (Recess 11-21 Jan)"},
@@ -49,8 +63,10 @@ SYSTEM_PROMPT = """You are tracking Emirates Economy fares on the Dubai (DXB) <-
 route for a BITS Pilani Dubai student traveling on a student budget.
 
 For each leg given, use web search (Google Flights, Emirates.com, and any current deal/sale \
-chatter -- travel deal blogs, r/IndiaTravel, r/dubai) to find the SINGLE cheapest date to fly \
-within that window. Do not enumerate every date -- one well-aimed search per leg is enough.
+chatter -- travel deal blogs, r/IndiaTravel, r/dubai) to scan the whole window's price calendar \
+(e.g. the Google Flights date grid) and find the SINGLE cheapest date to fly within it. You don't \
+need a separate search per date -- one look at the date grid per leg is enough. If another date in \
+the window is within ~10% of the cheapest, name it briefly in `note` so a near-miss cheap date isn't lost.
 
 Weigh known price-risk windows: Diwali (6-10 Nov 2026) and Christmas/New Year (25 Dec-1 Jan) \
 if they overlap or sit near a leg's window.
@@ -82,6 +98,88 @@ recommendation must be exactly one of: "book now", "wait", "not enough data yet"
 If you can't determine fare_family, use "unknown". If price cannot be found, omit that leg \
 entirely rather than guessing.
 """
+
+
+def load_legs():
+    """Return the legs to check this run.
+
+    Persistent legs come from windows.json (falling back to DEFAULT_LEGS if the
+    file is missing or unreadable). A one-off ad-hoc leg can be injected for a
+    single run via EXTRA_ROUTE / EXTRA_WINDOW / EXTRA_NOTE -- these are wired to
+    the manual "Run workflow" button so you can check an unexpected date without
+    editing anything.
+    """
+    if WINDOWS_FILE.exists():
+        try:
+            legs = json.loads(WINDOWS_FILE.read_text())
+            if not isinstance(legs, list) or not legs:
+                raise ValueError("windows.json must be a non-empty JSON list")
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"[warn] windows.json unreadable ({e}); using built-in defaults")
+            legs = list(DEFAULT_LEGS)
+    else:
+        legs = list(DEFAULT_LEGS)
+
+    extra_route = os.environ.get("EXTRA_ROUTE", "").strip()
+    extra_window = os.environ.get("EXTRA_WINDOW", "").strip()
+    if extra_route and extra_window:
+        legs.append({
+            "route": extra_route,
+            "window": extra_window,
+            "note": os.environ.get("EXTRA_NOTE", "").strip() or "Ad-hoc leg (manual run)",
+        })
+        print(f"[info] added ad-hoc leg: {extra_route} ({extra_window})")
+    elif extra_route or extra_window:
+        print("[warn] an ad-hoc leg needs BOTH EXTRA_ROUTE and EXTRA_WINDOW; ignoring")
+
+    return legs
+
+
+def log_trip():
+    """Append a personal trip/booking record to trips.json, for reference.
+
+    Triggered by the LOG_TRIP env var (manual run). Format:
+        route|date|price|note     e.g.  DEL-DXB|2026-08-19|15500|booked on Emirates.com
+    Only route and date are required. This is a log of trips YOU take -- kept
+    separate from fare_log.json, which is the automated price-check history.
+    """
+    raw = os.environ.get("LOG_TRIP", "").strip()
+    if not raw:
+        return
+    parts = [p.strip() for p in raw.split("|")]
+    route = parts[0] if len(parts) > 0 else ""
+    trip_date = parts[1] if len(parts) > 1 else ""
+    if not route or not trip_date:
+        print("[warn] LOG_TRIP needs at least 'route|date'; skipping")
+        return
+
+    price = None
+    if len(parts) > 2 and parts[2]:
+        try:
+            price = float(parts[2])
+        except ValueError:
+            print(f"[warn] LOG_TRIP price '{parts[2]}' isn't a number; logging without price")
+
+    entry = {
+        "logged_at": datetime.now(timezone.utc).isoformat(),
+        "route": route,
+        "date": trip_date,
+        "price": price,
+        "currency": "INR",
+        "note": parts[3] if len(parts) > 3 else "",
+    }
+
+    trips = []
+    if TRIPS_FILE.exists():
+        try:
+            trips = json.loads(TRIPS_FILE.read_text())
+            if not isinstance(trips, list):
+                trips = []
+        except json.JSONDecodeError:
+            trips = []
+    trips.append(entry)
+    TRIPS_FILE.write_text(json.dumps(trips, indent=2) + "\n")
+    print(f"[info] logged trip: {route} on {trip_date}")
 
 
 def call_claude(legs):
@@ -142,8 +240,10 @@ def send_email(subject, body):
 
 
 def main():
+    log_trip()
+    legs = load_legs()
     log = load_log()
-    result = call_claude(LEGS)
+    result = call_claude(legs)
     checked_at = datetime.now(timezone.utc).isoformat()
 
     alerts = []

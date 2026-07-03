@@ -68,11 +68,36 @@ you're using).
 
 ## Editing your travel windows
 
-Edit the `LEGS` list at the top of `check_fares_ai.py`. Currently set from
-the BITS Pilani Dubai 2026-27 academic calendar:
+Edit **`windows.json`** — no code change needed. Each entry is
+`{"route": "DEL-DXB", "window": "4-11 Nov 2026", "note": "..."}`. It ships with
+the BITS Pilani Dubai 2026-27 academic calendar plus one example extra window:
 - DEL→DXB, 18–25 Aug 2026 (First Semester begins 21 Aug, classwork 25 Aug)
 - DXB→DEL, 20–26 Dec 2026 (Compre ends 24 Dec)
 - DEL→DXB, 15–22 Jan 2027 (Second Semester begins 22 Jan, Recess 11–21 Jan)
+- DXB→DEL, 4–11 Nov 2026 (example Diwali-area window — delete if unused)
+
+If `windows.json` is missing or unreadable, the script falls back to the
+`DEFAULT_LEGS` list baked into `check_fares_ai.py`.
+
+## One-off checks and trip history (manual runs)
+
+From the Actions tab → **Run workflow**, you can:
+- **Check an unexpected date once** without editing anything — fill in
+  `extra_route` (e.g. `DEL-DXB`) and `extra_window` (e.g. `4-11 Nov 2026`).
+  That leg is checked for this run only and logged to `fare_log.json`.
+- **Log a trip you booked** — fill in `log_trip` as `route|date|price|note`
+  (e.g. `DEL-DXB|2026-08-19|15500|booked on Emirates.com`). It appends to
+  `trips.json`, your personal booking history (separate from the price log).
+
+## Where the price data comes from (and free alternatives)
+
+This tool pays the Anthropic API to **web-search** fares (Google Flights,
+Emirates.com, Reddit/deal chatter) and reason about them — it is *not* a direct
+Emirates connection. The Saver-fare and sale-chatter signals come from that
+reasoning; no free flight API exposes them. See
+[`docs/data-sources.md`](docs/data-sources.md) for the full survey of
+alternative APIs (Amadeus, Skyscanner/RapidAPI, ExpertFlyer) and why the AI
+route is the one that keeps every feature.
 
 ## Honest limitations
 
