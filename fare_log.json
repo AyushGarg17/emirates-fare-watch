@@ -6,5 +6,14 @@
       {"route": "DXB-DEL", "window": "20-26 Dec 2026", "best_date": "2026-12-21", "price": 22000, "currency": "INR", "fare_family": "unknown", "saver_available": false, "source": "web search (seed check via claude.ai)", "sale_chatter": "none found", "recommendation": "wait", "note": "Dec is peak; start watching hard from late Sep, book by mid-Oct"},
       {"route": "DEL-DXB", "window": "15-22 Jan 2027", "best_date": "2027-01-18", "price": 14000, "currency": "INR", "fare_family": "unknown", "saver_available": false, "source": "web search (seed check via claude.ai)", "sale_chatter": "none found", "recommendation": "wait", "note": "watch from mid-Oct; post-New-Year DEL-DXB softens faster"}
     ]
+  },
+  {
+    "checked_at": "2026-07-04T09:30:00Z",
+    "legs": [
+      {"route": "DEL-DXB", "window": "18-25 Aug 2026", "best_date": "2026-08-19", "price": 14300, "currency": "INR", "fare_family": "unknown", "saver_available": false, "source": "web search (Google Flights + EaseMyTrip/ixigo, via claude.ai)", "sale_chatter": "Emirates STUDENT promo: up to 10% off Economy (book by 31 Mar 2027)", "recommendation": "book now", "note": "~45 days out, inside the 45-90d sweet spot; Aug is summer low season. Down ~8% from seed 15,500."},
+      {"route": "DXB-DEL", "window": "20-26 Dec 2026", "best_date": "2026-12-21", "price": 21500, "currency": "INR", "fare_family": "unknown", "saver_available": false, "source": "web search (Expedia/KAYAK aggregators, via claude.ai)", "sale_chatter": "none found for these dates", "recommendation": "wait", "note": "Dec is peak; ~5.5 months out. Watch from late Sep, aim to book by mid-Oct."},
+      {"route": "DEL-DXB", "window": "15-22 Jan 2027", "best_date": "2027-01-18", "price": 14000, "currency": "INR", "fare_family": "unknown", "saver_available": false, "source": "web search (EaseMyTrip/Cleartrip aggregators, via claude.ai)", "sale_chatter": "Emirates STUDENT promo may apply (up to 10% off Economy)", "recommendation": "wait", "note": "~6.5 months out; too early. Post-New-Year DEL-DXB softens; watch from mid-Oct."},
+      {"route": "DXB-DEL", "window": "4-11 Nov 2026", "best_date": "2026-11-04", "price": 16500, "currency": "INR", "fare_family": "unknown", "saver_available": false, "source": "web search (MakeMyTrip/Air India comparators, via claude.ai)", "sale_chatter": "Emirates Diwali onboard festivities 28 Oct-4 Nov (not a fare discount)", "recommendation": "wait", "note": "Diwali ~8 Nov -> peak demand into India; the 4th (pre-peak) is cheapest. Example window; delete if unused."}
+    ]
   }
 ]
